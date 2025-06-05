@@ -51,7 +51,7 @@ BlueskyPostStandAlone.ps1 is a standalone PowerShell script for creating and pos
 - For advanced debugging, run the script from a PowerShell terminal to see additional output.
 
 ## Credits
-- Built using the [PSBlueSky](https://github.com/MarshalX/PSBlueSky) module.
+- Built using the [PSBlueSky](https://github.com/jdhitsolutions/PSBluesky) module.
 - GUI built with Windows Presentation Framework (WPF) via PowerShell.
 
 ---
