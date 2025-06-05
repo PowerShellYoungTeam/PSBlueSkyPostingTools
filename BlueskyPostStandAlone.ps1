@@ -94,12 +94,12 @@ function Find-BskyUserDid {
     param(
         [string]$Username
     )
-    $user = Find-BskyUser -UserName $Username | Select-Object -First 1
-    if ($user -and $user.Did) {
-        return $user.Did
+    $users = Find-BskyUser -UserName $Username
+    if ($users -and $users.Count -gt 0) {
+        return $users
     }
     else {
-        Write-Warning "User not found or DID not available."
+        Write-Warning "User not found."
         return $null
     }
 }
@@ -341,21 +341,83 @@ function Show-BskyPostGui {
     # Mention Get DID button event
     $getDidBtn.Add_Click({
             $username = $usernameBox.Text
-            if ($username) {
-                try {
-                    $did = Find-BskyUserDid -Username $username
-                    if ($did) {
-                        $mentionDidBox.Text = $did
-                        [System.Windows.MessageBox]::Show("DID found: $did")
+            if (-not $username) { return }
+            try {
+                $users = Find-BskyUserDid -Username $username
+            }
+            catch {
+                [System.Windows.MessageBox]::Show("Error finding DID: $($_.Exception.Message)")
+                return
+            }
+            if (-not $users -or $users.Count -eq 0) {
+                [System.Windows.MessageBox]::Show('No users found')
+                return
+            }
+            # Build selection dialog
+            $selectWindow = New-Object Windows.Window
+            $selectWindow.Title = 'Select Bluesky User'
+            $selectWindow.Width = 500
+            $selectWindow.Height = 350
+            $selectWindow.WindowStartupLocation = 'CenterScreen'
+            $panel = New-Object Windows.Controls.StackPanel
+            $selectWindow.Content = $panel
+            $listBox = New-Object Windows.Controls.ListBox
+            $listBox.Height = 120
+            foreach ($u in $users) {
+                $desc = "Username: $($u.username) | Name: $($u.displayName) | DID: $($u.Did)"
+                $desc += "`nDescription: $($u.description)"
+                $item = New-Object Windows.Controls.ListBoxItem
+                $item.Content = $desc
+                $item.Tag = $u
+                $listBox.Items.Add($item)
+            }
+            $panel.Children.Add($listBox)
+            # User detail fields
+            $userFields = @{
+                Username    = New-Object Windows.Controls.TextBox
+                DisplayName = New-Object Windows.Controls.TextBox
+                Description = New-Object Windows.Controls.TextBox
+                Did         = New-Object Windows.Controls.TextBox
+            }
+            foreach ($key in $userFields.Keys) {
+                $label = New-Object Windows.Controls.TextBlock
+                $label.Text = $key
+                $panel.Children.Add($label)
+                $tb = $userFields[$key]
+                $tb.IsReadOnly = $true
+                $tb.Margin = '0,0,0,5'
+                $panel.Children.Add($tb)
+            }
+            # Update fields on selection
+            $listBox.Add_SelectionChanged({
+                    $idx = $listBox.SelectedIndex
+                    if ($idx -ge 0) {
+                        $u = $listBox.Items[$idx].Tag
+                        $userFields['Username'].Text = $u.username
+                        $userFields['DisplayName'].Text = $u.displayName
+                        $userFields['Description'].Text = $u.description
+                        $userFields['Did'].Text = $u.Did
+                    }
+                })
+            # Choose User button
+            $chooseBtn = New-Object Windows.Controls.Button
+            $chooseBtn.Content = 'Choose User'
+            $chooseBtn.Margin = '0,10,0,0'
+            $panel.Children.Add($chooseBtn)
+            $chooseBtn.Add_Click({
+                    $idx = $listBox.SelectedIndex
+                    if ($idx -ge 0) {
+                        $u = $listBox.Items[$idx].Tag
+                        $mentionDidBox.Text = $u.Did
+                        $selectWindow.DialogResult = $true
+                        $selectWindow.Close()
+                        [System.Windows.MessageBox]::Show("DID set: $($u.Did)")
                     }
                     else {
-                        [System.Windows.MessageBox]::Show('Could not find DID for that username.')
+                        [System.Windows.MessageBox]::Show('Please select a user.')
                     }
-                }
-                catch {
-                    [System.Windows.MessageBox]::Show("Error finding DID: $($_.Exception.Message)")
-                }
-            }
+                })
+            $selectWindow.ShowDialog() | Out-Null
         })
 
     # Tag Facet
